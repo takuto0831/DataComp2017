@@ -1,0 +1,80 @@
+---
+title: "顧客クラスタリング"
+author: "Kotsubo Takuto"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+---
+
+```{r option, echo=FALSE, cache=FALSE,warning=FALSE}
+library(knitr)
+library(rmdformats)
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r,echo=FALSE}
+library(DBI)  # 必須ではないらしい
+library(RPostgreSQL)
+library(dplyr)
+```
+
+```{r set databese,include=FALSE}
+con <- dbConnect(PostgreSQL(), host="192.168.11.16", 
+                 port=5432, 
+                 dbname="datacom2017", 
+                 user="postgres", 
+                 password="postgres")
+
+scan_query <- function(query_path) {
+  return (
+    scan(query_path, what='', quote='', sep='\n', comment.char = '', encoding='UTF-8') %>%
+      gsub(pattern='--.*$', replacement='') %>% # 正規表現でコメントアウトを消す
+      paste0(collapse=' ')
+  )
+  }
+dbGetQuery(con,"SET CLIENT_ENCODING TO 'shift-jis';")
+```
+
+# 顧客データの読み込み
+
+```{r}
+sql <- scan_query("C:/Users/SHIO-160412-4/Desktop/data-competition/sql/tmp.sql")
+customer_data <- dbGetQuery(con,sql)
+glimpse(customer_data)
+```
+
+顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録しました.
+また, お直し回数と商品購入合計金額を記録しました.
+
+# データ整理
+
+フリー女性, フリー男性, 顧客情報なしのデータを消去する.
+
+```{r}
+customer_data <- customer_data[is.na(customer_data$comment),]
+```
+
+
+# データ分析
+
+## 顧客年齢ヒストグラム
+
+```{r}
+hist(customer_data$birth_age,breaks=seq(1915,2015,by=10),xlab = "顧客年齢",main='')
+```
+
+## 初回来店ヒストグラム
+
+```{r}
+hist(customer_data$first_year,breaks=seq(1980,2019,by=3),xlab = "初回来店年",main='')
+```
