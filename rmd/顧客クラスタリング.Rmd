@@ -6,7 +6,10 @@ output:
   rmdformats::readthedown:
     code_folding: hide
     highlight: kate
+    md_extensions: -ascii_identifiers
 ---
+
+目的：顧客情報を充実させ, 既存の情報と追加した応報を基に顧客をクラスタリングする.
 
 ```{r option, echo=FALSE, cache=FALSE,warning=FALSE}
 library(knitr)
@@ -54,7 +57,7 @@ glimpse(customer_data)
 ```
 
 顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録しました.
-また, お直し回数と商品購入合計金額を記録しました.
+また, お直し回数, 商品購入合計金額, 来店間隔を記録しました.
 
 # データ整理
 
@@ -65,7 +68,9 @@ customer_data <- customer_data[is.na(customer_data$comment),]
 ```
 
 
-# データ分析
+# 基本データ分析
+
+追加した情報とあわせて, 基本的な内容を概観する.
 
 ## 顧客年齢ヒストグラム
 
@@ -76,5 +81,36 @@ hist(customer_data$birth_age,breaks=seq(1915,2015,by=10),xlab = "顧客年齢",m
 ## 初回来店ヒストグラム
 
 ```{r}
-hist(customer_data$first_year,breaks=seq(1980,2019,by=3),xlab = "初回来店年",main='')
+hist(customer_data$first_year,breaks=seq(1980,2018,by=2),xlab = "初回来店年",main='')
 ```
+
+## アイテム購入金額ヒストグラム
+
+```{r}
+hist(customer_data$total_item_money,breaks=seq(0,900000,by=10000),xlab = "アイテム購入金額",main='')
+```
+
+## 来店間隔ヒストグラム
+
+```{r}
+hist(customer_data$visit_interval,breaks=seq(0,750,by=15),xlab = "顧客来店間隔",main='')
+```
+
+## 各期ごとの来店回数 
+
+```{r}
+count <- customer_data %>% 
+  summarise(morning_weekday = sum(morning_count_weekday),
+            evening_weekday = sum(evening_count_weekday),
+            night_weekday = sum(night_count_weekday),
+            morning_holiday = sum(morning_count_holiday),
+            evening_holiday = sum(evening_count_holiday),
+            night_holiday = sum(night_count_holiday))
+kable(count)
+```
+
+
+
+
+
+
