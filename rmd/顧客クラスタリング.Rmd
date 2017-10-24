@@ -113,13 +113,15 @@ kable(visit_count)
 
 ## お直し回数
 
-お直しは意外と少ない. 会計明細からお直しの会計idの出現をカウントすると603回でした.
+お直しは意外と少ない. 会計明細からお直しの製品番号idの出現をカウントすると603回でした.
 
 ```{r}
-table(customer_data$remake_count)
+table(customer_data$remake_count) %>% 
+  as.data.frame() %>% t() %>% 
+  kable()
 ```
 
+# クラスタリング分析
 
-
-
-
+基本的な分析, および追加したデータの概観を確認したところで, クラスタリングをしてみよう.
+ここからなんとなく python 使います.
