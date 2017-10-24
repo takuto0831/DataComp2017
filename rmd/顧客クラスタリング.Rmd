@@ -98,17 +98,26 @@ hist(customer_data$visit_interval,breaks=seq(0,750,by=15),xlab = "顧客来店�
 
 ## 各期ごとの来店回数 
 
+平日, 土日ともに夕方の会計回数が多い.
+
 ```{r}
-count <- customer_data %>% 
+visit_count <- customer_data %>% 
   summarise(morning_weekday = sum(morning_count_weekday),
             evening_weekday = sum(evening_count_weekday),
             night_weekday = sum(night_count_weekday),
             morning_holiday = sum(morning_count_holiday),
             evening_holiday = sum(evening_count_holiday),
             night_holiday = sum(night_count_holiday))
-kable(count)
+kable(visit_count)
 ```
 
+## お直し回数
+
+お直しは意外と少ない. 会計明細からお直しの会計idの出現をカウントすると603回でした.
+
+```{r}
+table(customer_data$remake_count)
+```
 
 
 
