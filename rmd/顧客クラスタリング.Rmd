@@ -28,6 +28,7 @@ opts_knit$set(width=75)
 
 ```{r,echo=FALSE}
 library(dplyr)
+library(tidyverse)
 ```
 
 
@@ -83,14 +84,14 @@ hist(customer_data$visit_interval,breaks=seq(0,750,by=15),xlab = "顧客来店�
 平日, 土日ともに夕方の会計回数が多い.
 
 ```{r}
-visit_count <- customer_data %>% 
+customer_data %>% 
   summarise(morning_weekday = sum(morning_count_weekday),
             evening_weekday = sum(evening_count_weekday),
             night_weekday = sum(night_count_weekday),
             morning_holiday = sum(morning_count_holiday),
             evening_holiday = sum(evening_count_holiday),
-            night_holiday = sum(night_count_holiday))
-kable(visit_count)
+            night_holiday = sum(night_count_holiday)) %>% 
+  kable()
 ```
 
 - 時間ごとに分割した6項目について来店回数がゼロの回数をカウント, 
@@ -100,8 +101,7 @@ kable(visit_count)
 count_zero <- function(x) length(which(x==0))
 customer_data[,9:14] %>% 
   apply(1,count_zero) %>% 
-  table() %>% as.data.frame() %>% t() %>% 
-  kable()
+  table() %>% as.data.frame() %>% t() %>% kable(col.names = NA)
 ```
 
 
@@ -122,7 +122,13 @@ table(customer_data$remake_count) %>%
 
 - クラスタリングの方法は, 6分割した時間ごと来店数を用いて K-means法
 
--- 詳細は乗せましょう!!!!
+1. 各点にランダムにクラスタを割り当てる.
+ 
+2. クラスタの重心を計算する.
+
+3. 点のクラスタを,一番近い重心のクラスタに変更する.
+
+4. 変化がなければ終了,変化がある限りは 2. に戻る.
 
 - cluster_idの項目を追加, まずは顧客を4分割した.
 
@@ -131,4 +137,34 @@ customer_clus_data <- read.csv("csv/customer_cluster.csv", header=TRUE, skip=0)
 glimpse(customer_clus_data)
 ```
 
+## クラスターごとに来店間隔のヒストグラム
+
+```{r}
+customer_clus_data %>% 
+  ggplot(aes(x=visit_interval))+
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~cluster_id, scales="free")
+  #theme_bw()
+```
+
+
+## クラスターごとに顧客年齢のヒストグラム
+
+```{r}
+customer_clus_data %>% 
+  ggplot(aes(x=birth_age))+
+  geom_histogram(binwidth = 10) + 
+  facet_wrap(~cluster_id, scales="free")
+  #theme_bw()
+```
+
+## クラスターごとの商品購入金額および該当人数
+
+```{r}
+customer_clus_data %>%  
+  group_by(cluster_id) %>% 
+  summarise(money = mean(total_item_money),
+            count = n()) %>% 
+  kable()
+```
 

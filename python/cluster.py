@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
-
+from collections import Counter
 
 # ファイル読み込み
 with codecs.open("C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/csv/customer.csv", "r", "Shift-JIS", "ignore") as file:
@@ -29,7 +29,10 @@ cust_array = np.array([data['morning_count_weekday'].tolist(),
 cust_array = cust_array.T
 
 # クラスタリング
-pred = KMeans(n_clusters=4).fit_predict(cust_array)
+# もっと細かい変数を指定できる？
+# クラスタリングに項目の平均を使いたくない、６方向のベクトルをそれぞれ独立に使いたいイメージ
+
+pred1 = KMeans(n_clusters=4,max).fit_predict(cust_array)
 
 # クラスタリングの結果を元データに結合
 data["cluster_id"] = pred
