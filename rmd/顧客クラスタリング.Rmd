@@ -17,6 +17,7 @@ library(rmdformats)
 ## Global options
 options(max.print="75")
 opts_chunk$set(echo=TRUE,
+               cache = TRUE,
 	             prompt=FALSE,
                tidy=TRUE,
                comment=NA,
@@ -26,38 +27,19 @@ opts_knit$set(width=75)
 ```
 
 ```{r,echo=FALSE}
-library(DBI)  # 必須ではないらしい
-library(RPostgreSQL)
 library(dplyr)
 ```
 
-```{r set databese,include=FALSE}
-con <- dbConnect(PostgreSQL(), host="192.168.11.16", 
-                 port=5432, 
-                 dbname="datacom2017", 
-                 user="postgres", 
-                 password="postgres")
-
-scan_query <- function(query_path) {
-  return (
-    scan(query_path, what='', quote='', sep='\n', comment.char = '', encoding='UTF-8') %>%
-      gsub(pattern='--.*$', replacement='') %>% # 正規表現でコメントアウトを消す
-      paste0(collapse=' ')
-  )
-  }
-dbGetQuery(con,"SET CLIENT_ENCODING TO 'shift-jis';")
-```
 
 # 顧客データの読み込み
 
 ```{r}
-sql <- scan_query("C:/Users/SHIO-160412-4/Desktop/data-competition/sql/tmp.sql")
-customer_data <- dbGetQuery(con,sql)
+customer_data <- read.csv("csv/customer.csv", header=TRUE, skip=0)
 glimpse(customer_data)
 ```
 
-顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録しました.
-また, お直し回数, 商品購入合計金額, 来店間隔を記録しました.
+- 顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録
+- また, お直し回数, 商品購入合計金額, 来店間隔を記録
 
 # データ整理
 
@@ -111,6 +93,17 @@ visit_count <- customer_data %>%
 kable(visit_count)
 ```
 
+時間ごとに分割した6項目について来店回数がゼロの回数をカウント, つまり6 なら一度も来ていないということ. 5は一定の時間に決めている人で一番多い.
+
+```{r}
+count_zero <- function(x) length(which(x==0))
+customer_data[,9:14] %>% 
+  apply(1,count_zero) %>% 
+  table() %>% as.data.frame() %>% t() %>% 
+  kable()
+```
+
+
 ## お直し回数
 
 お直しは意外と少ない. 会計明細からお直しの製品番号idの出現をカウントすると603回でした.
@@ -123,5 +116,11 @@ table(customer_data$remake_count) %>%
 
 # クラスタリング分析
 
-基本的な分析, および追加したデータの概観を確認したところで, クラスタリングをしてみよう.
-ここからなんとなく python 使います.
+基本的な分析, および追加したデータの概観を確認したところで, クラスタリングをしてみる.
+
+
+```{r}
+
+```
+
+
