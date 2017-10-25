@@ -1,0 +1,60 @@
+---
+title: "sql read"
+author: "kotsubotakuto"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    md_extensions: -ascii_identifiers
+---
+```{r option, echo=FALSE, cache=FALSE,warning=FALSE}
+library(knitr)
+library(rmdformats)
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r,echo=FALSE}
+library(DBI)  # 必須ではないらしい
+library(RPostgreSQL)
+library(dplyr)
+```
+
+```{r set databese,include=FALSE}
+con <- dbConnect(PostgreSQL(), host="192.168.11.16", 
+                 port=5432, 
+                 dbname="datacom2017", 
+                 user="postgres", 
+                 password="postgres")
+
+scan_query <- function(query_path) {
+  return (
+    scan(query_path, what='', quote='', sep='\n', comment.char = '', encoding='UTF-8') %>%
+      gsub(pattern='--.*$', replacement='') %>% # 正規表現でコメントアウトを消す
+      paste0(collapse=' ')
+  )
+  }
+dbGetQuery(con,"SET CLIENT_ENCODING TO 'shift-jis';")
+```
+
+# 顧客データの読み込み
+
+```{r}
+sql <- scan_query("C:/Users/SHIO-160412-4/Desktop/data-competition/sql/tmp.sql")
+customer_data <- dbGetQuery(con,sql)
+```
+
+# データ保存
+
+```{r}
+write.csv(customer_data, "csv/customer.csv", quote=FALSE, row.names=FALSE)
+```
+
