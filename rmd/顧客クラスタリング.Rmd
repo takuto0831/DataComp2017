@@ -93,7 +93,8 @@ visit_count <- customer_data %>%
 kable(visit_count)
 ```
 
-時間ごとに分割した6項目について来店回数がゼロの回数をカウント, つまり6 なら一度も来ていないということ. 5は一定の時間に決めている人で一番多い.
+- 時間ごとに分割した6項目について来店回数がゼロの回数をカウント, 
+- つまり6 なら一度も来ていないということ. 5は一定の時間に決めている人で一番多い.
 
 ```{r}
 count_zero <- function(x) length(which(x==0))
@@ -117,10 +118,17 @@ table(customer_data$remake_count) %>%
 # クラスタリング分析
 
 基本的な分析, および追加したデータの概観を確認したところで, クラスタリングをしてみる.
+なんとなく python つかってクラスタリングしてその結果をcsvに保存して更に検証.
 
+- クラスタリングの方法は, 6分割した時間ごと来店数を用いて K-means法
+
+-- 詳細は乗せましょう!!!!
+
+- cluster_idの項目を追加, まずは顧客を4分割した.
 
 ```{r}
-
+customer_clus_data <- read.csv("csv/customer_cluster.csv", header=TRUE, skip=0)
+glimpse(customer_clus_data)
 ```
 
 

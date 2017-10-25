@@ -51,4 +51,5 @@ data[data["cluster_id"] == 3]["visit_interval"].mean()
 #data[data["cluster_id"] == 4]["visit_interval"].mean()
 #data[data["cluster_id"] == 5]["visit_interval"].mean()
 
+# データ書き出し
 data.to_csv('C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/csv/customer_cluster.csv', index=False )
