@@ -7,9 +7,11 @@ Created on Fri Oct 13 16:33:31 2017
 import codecs
 import pandas as pd
 import numpy as np
+import scipy
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from collections import Counter
+from spherecluster import SphericalKMeans
 
 # ファイル読み込み
 with codecs.open("C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/csv/customer.csv", "r", "Shift-JIS", "ignore") as file:
@@ -32,7 +34,7 @@ cust_array = cust_array.T
 # もっと細かい変数を指定できる？
 # クラスタリングに項目の平均を使いたくない、６方向のベクトルをそれぞれ独立に使いたいイメージ
 
-pred1 = KMeans(n_clusters=4,max).fit_predict(cust_array)
+pred1 = KMeans(n_clusters=4).fit_predict(cust_array)
 
 # クラスタリングの結果を元データに結合
 data["cluster_id"] = pred
@@ -56,3 +58,6 @@ data[data["cluster_id"] == 3]["visit_interval"].mean()
 
 # データ書き出し
 data.to_csv('C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/csv/customer_cluster.csv', index=False )
+
+
+
