@@ -29,14 +29,15 @@ opts_knit$set(width=75)
 ```{r,echo=FALSE}
 library(dplyr)
 library(tidyverse)
+library(rgl)
+knit_hooks$set(webgl = hook_webgl)
 ```
 
 
 # 顧客データの読み込み
 
 ```{r}
-customer_data <- read.csv("csv/customer.csv", header=TRUE, skip=0)
-glimpse(customer_data)
+customer_data <- read_csv("csv/customer.csv",locale = locale(encoding = "shift-jis"))
 ```
 
 - 顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録
@@ -137,6 +138,7 @@ customer_clus_data <- read.csv("csv/customer_cluster.csv", header=TRUE, skip=0)
 glimpse(customer_clus_data)
 ```
 
+
 ## クラスターごとに来店間隔のヒストグラム
 
 ```{r}
@@ -167,4 +169,3 @@ customer_clus_data %>%
             count = n()) %>% 
   kable()
 ```
-
