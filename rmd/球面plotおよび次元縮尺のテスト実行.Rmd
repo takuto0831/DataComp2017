@@ -1,0 +1,85 @@
+---
+title: ""
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    md_extensions: -ascii_identifiers
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE,warning=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+
+```{r,echo=FALSE}
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(rgl)
+knit_hooks$set(webgl = hook_webgl)
+```
+# 顧客データの読み込み
+
+```{r}
+customer_data <- read_csv("csv/customer.csv",locale = locale(encoding = "shift-jis"))
+```
+
+- 顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録
+- また, お直し回数, 商品購入合計金額, 来店間隔を記録
+
+# データ整理
+
+フリー女性, フリー男性, 顧客情報なしのデータを消去する.
+
+```{r}
+customer_data <- customer_data[is.na(customer_data$comment),]
+```
+
+```{r}
+customer_clus_data <- read_csv("csv/customer_cluster.csv")
+```
+# 平日
+
+```{r, webgl=TRUE}
+customer_clus_data %>%
+ select(morning_count_weekday:night_count_weekday) %>%
+ mutate(morning_count_weekday = scale(morning_count_weekday),
+        evening_count_weekday = scale(evening_count_weekday),
+        night_count_weekday = scale(night_count_weekday)) %>%
+ mutate(distance = sqrt(morning_count_weekday^2 + evening_count_weekday^2 + night_count_weekday^2)) %>%
+ mutate(morning = morning_count_weekday/distance,
+        evening = evening_count_weekday/distance,
+        night = night_count_weekday/distance) %>%
+ select(morning, evening, night) %>%
+ plot3d(col = rainbow(4)[customer_clus_data$cluster_id])
+```
+
+# 土日
+
+```{r, webgl=TRUE}
+customer_clus_data %>%
+ select(morning_count_holiday:night_count_holiday) %>%
+ mutate(morning_count_holiday = scale(morning_count_holiday),
+        evening_count_holiday = scale(evening_count_holiday),
+        night_count_holiday = scale(night_count_holiday)) %>%
+ mutate(distance = sqrt(morning_count_holiday^2 + evening_count_holiday^2 + night_count_holiday^2)) %>%
+ mutate(morning = morning_count_holiday/distance,
+        evening = evening_count_holiday/distance,
+        night = night_count_holiday/distance) %>%
+ select(morning, evening, night) %>%
+ plot3d(col = rainbow(4)[customer_clus_data$cluster_id])
+```
+
