@@ -7,6 +7,7 @@ output:
     code_folding: hide
     highlight: kate
     md_extensions: -ascii_identifiers
+    toc_depth: 3
 ---
 
 目的：顧客情報を充実させ, 既存の情報と追加した応報を基に顧客をクラスタリングする.
@@ -30,7 +31,6 @@ opts_knit$set(width=75)
 library(dplyr)
 library(tidyverse)
 library(rgl)
-knit_hooks$set(webgl = hook_webgl)
 ```
 
 
@@ -102,8 +102,27 @@ customer_data %>%
 count_zero <- function(x) length(which(x==0))
 customer_data[,9:14] %>% 
   apply(1,count_zero) %>% 
-  table() %>% as.data.frame() %>% t() %>% kable(col.names = NA)
+  table() %>% as.data.frame() %>% t() %>% kable()
 ```
+
+## 総来店回数
+
+```{r}
+customer_data %>% 
+  select(morning_count_weekday:night_count_holiday) %>% 
+  apply(1,sum) %>% 
+  table() %>% as.data.frame() %>% t() %>% kable()
+```
+
+
+```{r}
+customer_data %>% 
+  mutate(total_count = morning_count_weekday+evening_count_weekday+night_count_weekday+morning_count_holiday+evening_count_holiday+night_count_holiday) %>% 
+  ggplot(aes(x=total_count))+
+  geom_histogram(binwidth = 3)
+  #theme_bw()
+```
+
 
 
 ## お直し回数
@@ -116,7 +135,117 @@ table(customer_data$remake_count) %>%
   kable()
 ```
 
-# クラスタリング分析
+# クラスタリング分析 for R
+
+## 性別を用いてクラスタリング
+
+### 来店間隔のヒストグラム
+
+```{r}
+customer_data %>% 
+  ggplot(aes(x=visit_interval))+
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~sex)
+  #facet_wrap(~sex, scales="free")
+  #theme_bw()
+```
+
+
+### 顧客年齢のヒストグラム
+
+```{r}
+customer_data %>% 
+  ggplot(aes(x=birth_age))+
+  geom_histogram(binwidth = 10) +
+  facet_wrap(~sex)
+  #facet_wrap(~sex, scales="free")
+  #theme_bw()
+```
+
+### 商品購入金額および該当人数
+
+```{r}
+customer_data %>%  
+  group_by(sex) %>% 
+  summarise(mean = mean(total_item_money),
+            count = n()) %>% 
+  kable()
+```
+
+### 総来店回数
+
+```{r}
+customer_data %>% 
+  mutate(total_count = morning_count_weekday+evening_count_weekday+night_count_weekday+morning_count_holiday+evening_count_holiday+night_count_holiday) %>% 
+  ggplot(aes(x=total_count))+
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~sex)
+  #facet_wrap(~sex, scales="free")
+  #theme_bw()
+```
+
+## 時間区切りの来店回数でクラスタリング
+
+６区間で最も大きい値をその人物の特徴量とする
+
+### 来店間隔のヒストグラム
+
+```{r}
+library(pipeR)
+```
+
+```{r}
+customer_data %>>% 
+  select(morning_count_weekday:night_count_holiday) %>>% 
+  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  ggplot(aes(x=visit_interval))+
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~n)
+  #facet_wrap(~n, scales="free")
+  #theme_bw()
+```
+
+
+### 顧客年齢のヒストグラム
+
+```{r}
+customer_data %>>% 
+  select(morning_count_weekday:night_count_holiday) %>>% 
+  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  ggplot(aes(x=birth_age))+
+  geom_histogram(binwidth = 10) + 
+  facet_wrap(~n)
+  #facet_wrap(~n, scales="free")
+  #theme_bw()
+```
+
+### 商品購入金額および該当人数
+
+```{r}
+customer_data %>>% 
+  select(morning_count_weekday:night_count_holiday) %>>% 
+  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  group_by(n) %>% 
+  summarise(mean = mean(total_item_money),
+            count = n()) %>% 
+  kable()
+```
+
+### 総来店回数
+
+```{r}
+customer_data %>>% 
+  select(morning_count_weekday:night_count_holiday) %>>% 
+  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  mutate(total_count = morning_count_weekday+evening_count_weekday+night_count_weekday+morning_count_holiday+evening_count_holiday+night_count_holiday) %>% 
+  ggplot(aes(x=total_count))+
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~n)
+  #facet_wrap(~n, scales="free")
+```
+
+
+# クラスタリング分析 for python
 
 基本的な分析, および追加したデータの概観を確認したところで, クラスタリングをしてみる.
 なんとなく python つかってクラスタリングしてその結果をcsvに保存して更に検証.
@@ -165,7 +294,7 @@ customer_clus_data %>%
 ```{r}
 customer_clus_data %>%  
   group_by(cluster_id) %>% 
-  summarise(money = mean(total_item_money),
+  summarise(mean = mean(total_item_money),
             count = n()) %>% 
   kable()
 ```
