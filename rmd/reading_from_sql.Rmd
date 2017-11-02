@@ -42,19 +42,32 @@ scan_query <- function(query_path) {
       paste0(collapse=' ')
   )
   }
-dbGetQuery(con,"SET CLIENT_ENCODING TO 'shift-jis';")
 ```
 
-# 顧客データの読み込み
+# データの読み込み
 
 ```{r}
-sql <- scan_query("C:/Users/SHIO-160412-4/Desktop/data-competition/sql/tmp.sql")
-customer_data <- dbGetQuery(con,sql)
+dbGetQuery(con,"SET CLIENT_ENCODING TO 'shift-jis';")
+store <- dbGetQuery(con,"SELECT * FROM store_1") %>% as.tbl()
+staff <- dbGetQuery(con,"SELECT * FROM staff_1") %>% as.tbl()
+line <- dbGetQuery(con,"SELECT * FROM line_henpin_syori_fin") %>% as.tbl()
+receipt <- dbGetQuery(con,"SELECT * FROM receipt_henpin_syori_fin") %>% as.tbl()
+customer <- dbGetQuery(con,"SELECT * FROM customer_3") %>% as.tbl()
+```
+
+
+```{r}
+dbGetQuery(con,"SET CLIENT_ENCODING TO 'utf-8';")
+product <- dbGetQuery(con,"SELECT * FROM product_2") %>% as.tbl()
+product$product_category <- iconv(product$product_category,from = "utf-8",to="cp932")
+product$category_1 <- iconv(product$category_1,from = "utf-8",to="cp932")
+product$category_2 <- iconv(product$category_2,from = "utf-8",to="cp932")
+product$product_name<- iconv(product$product_name,from = "utf-8",to="cp932")
 ```
 
 # データ保存
 
-```{r}
+```{r,eval=FALSE}
 write.csv(customer_data, "csv/customer.csv", quote=FALSE, row.names=FALSE)
 ```
 

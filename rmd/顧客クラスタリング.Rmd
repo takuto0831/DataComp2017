@@ -31,13 +31,14 @@ opts_knit$set(width=75)
 library(dplyr)
 library(tidyverse)
 library(rgl)
+library(pipeR)
 ```
 
 
-# 顧客データの読み込み
+# データの読み込み
 
 ```{r}
-customer_data <- read_csv("csv/customer.csv",locale = locale(encoding = "shift-jis"))
+source('C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/script/read_data.R', encoding = 'UTF-8')
 ```
 
 - 顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録
@@ -48,7 +49,7 @@ customer_data <- read_csv("csv/customer.csv",locale = locale(encoding = "shift-j
 フリー女性, フリー男性, 顧客情報なしのデータを消去する.
 
 ```{r}
-customer_data <- customer_data[is.na(customer_data$comment),]
+customer <- customer[is.na(customer$comment),]
 ```
 
 
@@ -59,25 +60,25 @@ customer_data <- customer_data[is.na(customer_data$comment),]
 ## 顧客年齢ヒストグラム
 
 ```{r}
-hist(customer_data$birth_age,breaks=seq(1915,2015,by=10),xlab = "顧客年齢",main='')
+hist(customer$birth_age,breaks=seq(1915,2015,by=10),xlab = "顧客年齢",main='')
 ```
 
 ## 初回来店ヒストグラム
 
 ```{r}
-hist(customer_data$first_year,breaks=seq(1980,2018,by=2),xlab = "初回来店年",main='')
+hist(customer$first_year,breaks=seq(1980,2018,by=2),xlab = "初回来店年",main='')
 ```
 
 ## アイテム購入金額ヒストグラム
 
 ```{r}
-hist(customer_data$total_item_money,breaks=seq(0,900000,by=10000),xlab = "アイテム購入金額",main='')
+hist(customer$total_item_money,breaks=seq(0,900000,by=10000),xlab = "アイテム購入金額",main='')
 ```
 
 ## 来店間隔ヒストグラム
 
 ```{r}
-hist(customer_data$visit_interval,breaks=seq(0,750,by=15),xlab = "顧客来店間隔",main='')
+hist(customer$visit_interval,breaks=seq(0,750,by=15),xlab = "顧客来店間隔",main='')
 ```
 
 ## 各期ごとの来店回数 
@@ -85,7 +86,7 @@ hist(customer_data$visit_interval,breaks=seq(0,750,by=15),xlab = "顧客来店�
 平日, 土日ともに夕方の会計回数が多い.
 
 ```{r}
-customer_data %>% 
+customer %>% 
   summarise(morning_weekday = sum(morning_count_weekday),
             evening_weekday = sum(evening_count_weekday),
             night_weekday = sum(night_count_weekday),
@@ -100,7 +101,7 @@ customer_data %>%
 
 ```{r}
 count_zero <- function(x) length(which(x==0))
-customer_data[,9:14] %>% 
+customer[,9:14] %>% 
   apply(1,count_zero) %>% 
   table() %>% as.data.frame() %>% t() %>% kable()
 ```
@@ -108,7 +109,7 @@ customer_data[,9:14] %>%
 ## 総来店回数
 
 ```{r}
-customer_data %>% 
+customer %>% 
   select(morning_count_weekday:night_count_holiday) %>% 
   apply(1,sum) %>% 
   table() %>% as.data.frame() %>% t() %>% kable()
@@ -116,10 +117,11 @@ customer_data %>%
 
 
 ```{r}
-customer_data %>% 
+customer %>% 
   mutate(total_count = morning_count_weekday+evening_count_weekday+night_count_weekday+morning_count_holiday+evening_count_holiday+night_count_holiday) %>% 
   ggplot(aes(x=total_count))+
-  geom_histogram(binwidth = 3)
+  geom_density(fill = "blue",alpha=0.3) + 
+  xlim(0,100)
   #theme_bw()
 ```
 
@@ -130,7 +132,7 @@ customer_data %>%
 お直しは意外と少ない. 会計明細からお直しの製品番号idの出現をカウントすると603回でした.
 
 ```{r}
-table(customer_data$remake_count) %>% 
+table(customer$remake_count) %>% 
   as.data.frame() %>% t() %>% 
   kable()
 ```
@@ -142,9 +144,9 @@ table(customer_data$remake_count) %>%
 ### 来店間隔のヒストグラム
 
 ```{r}
-customer_data %>% 
+customer %>% 
   ggplot(aes(x=visit_interval))+
-  geom_histogram(binwidth = 5) + 
+  geom_density(fill = "blue",alpha=0.3) + 
   facet_wrap(~sex)
   #facet_wrap(~sex, scales="free")
   #theme_bw()
@@ -154,7 +156,7 @@ customer_data %>%
 ### 顧客年齢のヒストグラム
 
 ```{r}
-customer_data %>% 
+customer %>% 
   ggplot(aes(x=birth_age))+
   geom_histogram(binwidth = 10) +
   facet_wrap(~sex)
@@ -165,7 +167,7 @@ customer_data %>%
 ### 商品購入金額および該当人数
 
 ```{r}
-customer_data %>%  
+customer %>%  
   group_by(sex) %>% 
   summarise(mean = mean(total_item_money),
             count = n()) %>% 
@@ -175,10 +177,10 @@ customer_data %>%
 ### 総来店回数
 
 ```{r}
-customer_data %>% 
+customer %>% 
   mutate(total_count = morning_count_weekday+evening_count_weekday+night_count_weekday+morning_count_holiday+evening_count_holiday+night_count_holiday) %>% 
   ggplot(aes(x=total_count))+
-  geom_histogram(binwidth = 5) + 
+  geom_density(fill = "blue",alpha=0.3) + 
   facet_wrap(~sex)
   #facet_wrap(~sex, scales="free")
   #theme_bw()
@@ -191,15 +193,11 @@ customer_data %>%
 ### 来店間隔のヒストグラム
 
 ```{r}
-library(pipeR)
-```
-
-```{r}
-customer_data %>>% 
+customer %>>% 
   select(morning_count_weekday:night_count_holiday) %>>% 
-  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  {mutate(customer,n=apply(.,1,function(x) which.max(x)))} %>% 
   ggplot(aes(x=visit_interval))+
-  geom_histogram(binwidth = 5) + 
+  geom_density(fill = "blue",alpha=0.3) +  
   facet_wrap(~n)
   #facet_wrap(~n, scales="free")
   #theme_bw()
@@ -209,11 +207,11 @@ customer_data %>>%
 ### 顧客年齢のヒストグラム
 
 ```{r}
-customer_data %>>% 
+customer %>>% 
   select(morning_count_weekday:night_count_holiday) %>>% 
-  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  {mutate(customer,n=apply(.,1,function(x) which.max(x)))} %>% 
   ggplot(aes(x=birth_age))+
-  geom_histogram(binwidth = 10) + 
+  geom_histogram(binwidth = 10) +
   facet_wrap(~n)
   #facet_wrap(~n, scales="free")
   #theme_bw()
@@ -222,9 +220,9 @@ customer_data %>>%
 ### 商品購入金額および該当人数
 
 ```{r}
-customer_data %>>% 
+customer %>>% 
   select(morning_count_weekday:night_count_holiday) %>>% 
-  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  {mutate(customer,n=apply(.,1,function(x) which.max(x)))} %>% 
   group_by(n) %>% 
   summarise(mean = mean(total_item_money),
             count = n()) %>% 
@@ -234,12 +232,12 @@ customer_data %>>%
 ### 総来店回数
 
 ```{r}
-customer_data %>>% 
+customer %>>% 
   select(morning_count_weekday:night_count_holiday) %>>% 
-  {mutate(customer_data,n=apply(.,1,function(x) which.max(x)))} %>% 
+  {mutate(customer,n=apply(.,1,function(x) which.max(x)))} %>% 
   mutate(total_count = morning_count_weekday+evening_count_weekday+night_count_weekday+morning_count_holiday+evening_count_holiday+night_count_holiday) %>% 
   ggplot(aes(x=total_count))+
-  geom_histogram(binwidth = 5) + 
+  geom_density(fill = "blue",alpha=0.3) + 
   facet_wrap(~n)
   #facet_wrap(~n, scales="free")
 ```
@@ -273,7 +271,7 @@ glimpse(customer_clus_data)
 ```{r}
 customer_clus_data %>% 
   ggplot(aes(x=visit_interval))+
-  geom_histogram(binwidth = 5) + 
+  geom_density(fill = "blue",alpha=0.3) + 
   facet_wrap(~cluster_id, scales="free")
   #theme_bw()
 ```
@@ -284,7 +282,7 @@ customer_clus_data %>%
 ```{r}
 customer_clus_data %>% 
   ggplot(aes(x=birth_age))+
-  geom_histogram(binwidth = 10) + 
+  geom_histogram(binwidth = 10) +
   facet_wrap(~cluster_id, scales="free")
   #theme_bw()
 ```
