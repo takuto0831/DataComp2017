@@ -70,6 +70,8 @@ line <- line %>%
 # 表記を店名にするため
 receipt$store_id_name <- factor(receipt$store_id, labels = store$store_name[1:12] %>% trimws() %>% as.vector())
 ```
+
+
 ```{r}
 # y軸を指数表記にする関数
 ScientificNotation <- function(l) {
@@ -173,6 +175,9 @@ receipt$t %>%
   hour() -> receipt$t_hour
 ```
 
+なんか, バイオリンプロットって見えにくい？？
+以下のサイズで統一したい.
+
 ```{r}
 # 来店数 土日
 receipt %>% 
@@ -182,9 +187,9 @@ receipt %>%
   group_by(dt,store_id_name, t_hour) %>% 
   summarise(customers = n()) %>% 
   ggplot(aes(x= factor(t_hour),y = customers)) +
-  geom_violin(adjust=.8,
-              colour="black",
-              fill="gray")+
+  #geom_violin(adjust=.8,
+   #           colour="black",
+    #          fill="gray")+
   geom_boxplot(width=.1,
                fill="black",
                outlier.colour=NA)+
@@ -197,6 +202,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/customer_for_store_hour_holiday.png", plot = p)
+  #ggsave(filename= "data/customer_for_store_hour_holiday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -224,6 +230,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/customer_for_store_hour_weekday.png", plot = p)
+  #ggsave(filename= "data/customer_for_store_hour_weekday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -251,6 +258,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/staff_for_store_hour_holiday.png", plot = p)
+  #ggsave(filename= "data/staff_for_store_hour_holiday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -279,6 +287,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/staff_for_store_hour_weekday.png", plot = p)
+  #ggsave(filename= "data/staff_for_store_hour_weekday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -303,6 +312,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/sale_for_store_hour_holiday.png", plot = p)
+  #ggsave(filename= "data/sale_for_store_hour_holiday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -327,6 +337,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/sale_for_store_hour_weekday.png", plot = p)
+  #ggsave(filename= "data/sale_for_store_hour_weekday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -350,6 +361,7 @@ receipt %>%
   facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/sale_for_store_month_hist.png", plot = p)
+  #ggsave(filename= "data/sale_for_store_month_hist.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
@@ -377,6 +389,7 @@ receipt %>%
   labs(x = "曜日",y = "売上") +
   facet_wrap(~store_id_name, scales="free") -> p
   #ggsave(filename= "data/sale_for_store_wday_hist.png", plot = p)
+  #ggsave(filename= "data/sale_for_store_wday_hist.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
 
