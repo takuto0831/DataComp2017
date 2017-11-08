@@ -1,0 +1,541 @@
+---
+title: "中間報告用"
+author: "kotsubotakuto"
+date: "2017年11月8日"
+output: 
+    html_document:
+      md_extensions: -ascii_identifiers
+      toc: true
+      toc_depth: 3
+---
+
+```{r option, echo=FALSE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+               cache = TRUE,
+	             prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r,echo=FALSE}
+library(dplyr)
+library(tidyverse)
+library(rgl)
+library(pipeR)
+library(lubridate)
+```
+
+# 全データの読み込み
+
+```{r}
+source('C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/script/read_data.R', encoding = 'UTF-8')
+```
+
+# データ操作
+
+データに追加を行う.
+
+```{r,include=FALSE}
+# リピーター判定
+customer <- receipt %>% 
+  select(customer_id,
+         cs_point) %>% 
+  group_by(customer_id) %>% 
+  summarise(count = n(),
+            cumComing=max(cs_point)) %>%  #cs_pointは累積来店回数
+  filter(count==1,
+         cumComing==1) %>%
+  mutate(repeater = FALSE) %>% 
+  select(customer_id,
+         repeater) %>% 
+  right_join(customer, by="customer_id") %>% 
+  mutate(repeater= ifelse(is.na(repeater)==TRUE,TRUE,FALSE))
+
+# 会計明細に必要な情報を集約
+line <- line %>% 
+  mutate(product_id = as.character(product_id)) %>% 
+  left_join(receipt %>% select(dt,receipt_id, customer_id, regi_staff), 
+            by="receipt_id") %>% 
+  left_join(customer %>% select(customer_id, repeater, comment),
+            by="customer_id") %>% 
+  left_join(product %>% select(product_id, product_name),
+            by="product_id")
+
+# 表記を店名にするため
+receipt$store_id_name <- factor(receipt$store_id, labels = store$store_name[1:12] %>% trimws() %>% as.vector())
+```
+```{r}
+# y軸を指数表記にする関数
+ScientificNotation <- function(l) {
+     l <- format(l, scientific = TRUE)
+     l <- gsub("^(.*)e", "'\\1'e", l)
+     l <- gsub("e\\+", "%*%10^", l)
+     l[1] <- "0"
+     parse(text = l)
+}
+```
+
+# 本題
+
+ある程度のストーリーを作成する.
+
+## 曜日ごとデータ
+
+曜日ごとの来店数, 売上, スタッフ数をカウントしてバランスをみる.
+
+```{r}
+# 来店数
+receipt %>% 
+  group_by(dt,store_id_name, customer_id) %>%
+  summarise() %>% 
+  group_by(store_id_name, dt) %>% 
+  summarise(customers = n()) %>% 
+  ggplot(aes(x= factor(wday(dt,label = T)),y = customers)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "曜日",y = "顧客数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  #ggsave(filename= "data/customer_for_store_wday.png")
+```
+
+```{r}
+# スタッフ数
+receipt %>% 
+  group_by(dt,store_id_name, pos_staff) %>%
+  summarise() %>% 
+  group_by(store_id_name, dt) %>% 
+  summarise(staffs = n()) %>% 
+  ggplot(aes(x= factor(wday(dt,label=T)),y = staffs)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "曜日",y = "スタッフ数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #ggsave(filename= "data/staff_for_store_wday.png")
+```
+
+```{r}
+# 売上
+receipt %>% 
+  select(dt,in_tax,store_id_name) %>% 
+  ggplot(aes(x=factor(wday(dt,label = T)), y= in_tax)) + 
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "曜日",y = "売上") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/sale_for_store_wday.png", plot = p)
+p
+```
+
+## 時間ごとデータ
+
+時間ごとの来店数, 売上, スタッフ数をカウントしてバランスをみる.
+まず会計データから時間情報を抽出する.
+
+```{r}
+receipt$t %>% 
+  hms() %>% 
+  hour() -> receipt$t_hour
+```
+
+```{r}
+# 来店数 土日
+receipt %>% 
+  filter(wday(dt) == 1 |wday(dt) == 7) %>% 
+  group_by(dt,store_id_name, t_hour, customer_id) %>% 
+  summarise() %>% 
+  group_by(dt,store_id_name, t_hour) %>% 
+  summarise(customers = n()) %>% 
+  ggplot(aes(x= factor(t_hour),y = customers)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "時間",y = "顧客数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/customer_for_store_hour_holiday.png", plot = p)
+p
+```
+
+```{r}
+# 来店数 平日
+receipt %>% 
+  filter(wday(dt) != 1 & wday(dt) != 7) %>% 
+  group_by(dt,store_id_name, t_hour, customer_id) %>% 
+  summarise() %>% 
+  group_by(dt,store_id_name, t_hour) %>% 
+  summarise(customers = n()) %>% 
+  ggplot(aes(x= factor(t_hour),y = customers)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "時間",y = "顧客数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/customer_for_store_hour_weekday.png", plot = p)
+p
+```
+
+```{r}
+# スタッフ数 土日
+receipt %>% 
+  filter(wday(dt) == 1 |wday(dt) == 7) %>% 
+  group_by(dt,store_id_name, t_hour, pos_staff) %>% 
+  summarise() %>% 
+  group_by(dt,store_id_name, t_hour) %>% 
+  summarise(staffs = n()) %>% 
+  ggplot(aes(x= factor(t_hour),y = staffs)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "時間",y = "スタッフ数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/staff_for_store_hour_holiday.png", plot = p)
+p
+```
+
+
+```{r}
+# スタッフ数 平日
+receipt %>% 
+  filter(wday(dt) != 1 & wday(dt) != 7) %>%
+  group_by(dt,store_id_name, t_hour, pos_staff) %>% 
+  summarise() %>% 
+  group_by(dt,store_id_name, t_hour) %>% 
+  summarise(staffs = n()) %>% 
+  ggplot(aes(x= factor(t_hour),y = staffs)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "時間",y = "スタッフ数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/staff_for_store_hour_weekday.png", plot = p)
+p
+```
+
+```{r}
+# 売上 土日
+receipt %>% 
+  filter(wday(dt) == 1 |wday(dt) == 7) %>% 
+  select(t_hour,in_tax,store_id_name) %>% 
+  ggplot(aes(x=factor(t_hour), y= in_tax)) + 
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "時間",y = "売上") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/sale_for_store_hour_holiday.png", plot = p)
+p
+```
+
+```{r}
+# 売上 平日
+receipt %>% 
+  filter(wday(dt) != 1 & wday(dt) != 7) %>% 
+  select(t_hour,in_tax,store_id_name) %>% 
+  ggplot(aes(x=factor(t_hour), y= in_tax)) + 
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "時間",y = "売上") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/sale_for_store_hour_weekday.png", plot = p)
+p
+```
+
+## 月別売上
+
+男女積み上げ棒グラフにした
+
+```{r monthly_sex}
+receipt %>% 
+  select(dt, customer_id, in_tax,store_id_name) %>% 
+  left_join(customer, by="customer_id") %>% 
+  select(dt, customer_id, in_tax, sex,store_id_name) %>% 
+  group_by(month = month(dt), sex,store_id_name) %>% 
+  summarise(sales = sum(in_tax)) %>%
+  filter(sex =="女性" | sex =="男性") %>% 
+  ggplot(aes(x=month, y=sales, fill=sex))+
+  geom_bar(stat="identity")+
+  scale_x_continuous(breaks=1:12) +
+  scale_y_continuous(labels = ScientificNotation) +
+  labs(x = "月",y = "売上") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
+  #ggsave(filename= "data/sale_for_store_month_hist.png", plot = p)
+p
+```
+
+- 売上変化の源泉は女性にあった
+- 性別がNA, 不明のものは除いてある
+- 実線は積み上げない売上を示している
+
+## 曜日ごとの合計売上
+
+- 2 年間の合計
+- 男女積み上げ棒グラフにした
+
+```{r wday_sex}
+receipt %>% 
+  select(dt, customer_id, in_tax,store_id_name) %>% 
+  left_join(customer, by="customer_id") %>% 
+  select(dt, sex, in_tax,store_id_name) %>% 
+  group_by(wday = wday(dt), sex, store_id_name) %>% 
+  summarise(sales = sum(in_tax)) %>% 
+  filter(sex == "女性" | sex == "男性") %>% 
+  ggplot(aes(x=wday, y=sales, fill=sex))+
+  geom_bar(stat="identity", colour="black")+
+  scale_x_continuous(breaks=1:12)+
+  scale_y_continuous(labels = ScientificNotation) +
+  labs(x = "曜日",y = "売上") +
+  facet_wrap(~store_id_name, scales="free") -> p
+  #ggsave(filename= "data/sale_for_store_wday_hist.png", plot = p)
+p
+```
+
+# 雑記
+
+使えそうなものまだ未保存,未調整
+
+## 会計履歴
+
+### データ期間の確認
+
+```{r, echo=FALSE}
+receipt %>% summarise(from = min(dt),
+                      to = max(dt)) %>% 
+  kable()
+```
+
+# 12店舗全体での売上
+
+## 全期間
+```{r, echo=FALSE}
+receipt %>% 
+  summarise(in_tax = sum(in_tax),
+            count = n()) %>% 
+  mutate(unitPrice = round(in_tax/count)) %>% 
+  kable()
+```
+
+- 2年間で約18億円の売上
+- 約15万件の会計
+- 客単価は約1.1万円
+
+## 客単価ヒストグラム
+```{r, echo=FALSE}
+hist(receipt$in_tax, 60,
+     xlab="客単価（円）",
+     main = "")
+```
+
+## 年次（全体）
+
+```{r, echo=FALSE}
+receipt %>% 
+  mutate(year = year(dt)) %>% 
+  group_by(year) %>% 
+  summarise(in_tax = sum(in_tax),
+            count = n()) %>% 
+  mutate(unitPrice = round(in_tax/count)) %>% 
+  kable()
+```
+
+- 2016年はフルでデータがあるので会計数は他の倍
+- 年ごとに単価の差は見られない。
+
+## 月次（全体）
+
+```{r, echo=FALSE}
+monthly <- receipt %>% 
+  select(dt, in_tax) %>% 
+  mutate(dt = as.POSIXct(dt) ) %>% 
+  group_by(month = month(dt)) %>%
+  summarise(in_tax = sum(in_tax),
+            count = n()) %>% 
+  mutate(unitPrice = round(in_tax/count))
+kable(monthly)
+```
+
+
+## 月次売上
+```{r, echo=FALSE}
+ggplot(monthly,aes(x=month, y=in_tax)) + 
+  geom_line(size=1)+
+  theme_bw()+
+  ylim(0,max(monthly$in_tax))+
+  scale_x_continuous(breaks=1:12)
+```
+
+- 1月の売上が明らかに少ない
+- 12月が多そう
+- 秋に減少傾向がある？
+
+## 月次会計数
+
+```{r, echo=FALSE}
+ggplot(monthly,aes(x=month, y=count)) + 
+  geom_line(size=1)+
+  theme_bw()+
+  ylim(0,max(monthly$count))+
+  scale_x_continuous(breaks=1:12)
+```
+
+- 当然のようにほぼ同じ変化
+
+## 月次客単価
+```{r, echo=FALSE}
+ggplot(monthly,aes(x=month, y=unitPrice)) + 
+  geom_line(size=1)+
+  theme_bw()+
+  ylim(0,max(monthly$unitPrice))+
+  scale_x_continuous(breaks=1:12)
+```
+
+- ほぼ一定でした
+
+## 曜日ごと
+```{r, echo=FALSE}
+w_day <- receipt %>% 
+  group_by(wday = wday(dt)) %>% 
+  summarise(in_tax = sum(in_tax),
+            count = n()) %>% 
+  mutate(unitPrice = in_tax/count)
+kable(w_day)
+```
+
+- 1~7 が日曜 ~ 土曜
+- 単価に差はなさそう
+- 美容室は火曜が定休日のところが多い
+- 土日の会計数はやはり多い
+- 会計数は火曜から土曜まで単調増加
+
+## 曜日別売上プロット
+
+```{r, echo=FALSE}
+w_day %>% 
+  ggplot(aes(x=wday, y=in_tax))+
+  geom_bar(stat="identity", width=0.7)+
+  theme_bw()
+```
+
+
+# 店舗ごと
+
+### 全期間（店舗ごと）
+
+```{r, echo=FALSE}
+storely <- receipt %>% 
+  select(store_id, dt, in_tax) %>% 
+  group_by(store_id) %>% 
+  summarise(in_tax = sum(in_tax),
+            count = n(),
+            unitPrice = in_tax/count) %>% 
+  arrange(desc(in_tax)) %>% 
+  left_join(store,by="store_id") %>% 
+  select(store_name, in_tax, count, unitPrice)
+kable(storely)
+```
+
+メン中野店。。。
+
+### 会計数 vs 客単価
+
+```{r, echo=FALSE}
+storely %>% 
+  ggplot()+ 
+  geom_point(aes(x=count, y=unitPrice))+
+  theme_bw()+
+  ylim(0, max(storely$unitPrice))+
+  xlim(0,max(storely$count))+
+  geom_text(aes(x = count,
+                y = unitPrice,
+                label=store_name), size=4, vjust=2)
+```

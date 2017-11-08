@@ -8,6 +8,8 @@ output:
     highlight: kate
     md_extensions: -ascii_identifiers
     toc_depth: 3
+editor_options: 
+  chunk_output_type: console
 ---
 
 目的：顧客情報を充実させ, 既存の情報と追加した応報を基に顧客をクラスタリングする.
@@ -32,6 +34,7 @@ library(dplyr)
 library(tidyverse)
 library(rgl)
 library(pipeR)
+library(lubridate)
 ```
 
 
@@ -46,10 +49,11 @@ source('C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/script/read_data.R',
 
 # データ整理
 
-フリー女性, フリー男性, 顧客情報なしのデータを消去する.
-
 ```{r}
+# フリー女性, フリー男性, 顧客情報なしのデータを消去する.
 customer <- customer[is.na(customer$comment),]
+# 表記を店名にするため
+receipt$store_id_name <- factor(receipt$store_id, labels = store$store_name[1:12] %>% trimws() %>% as.vector())
 ```
 
 
@@ -296,3 +300,62 @@ customer_clus_data %>%
             count = n()) %>% 
   kable()
 ```
+
+
+# いろいろ
+
+```{r}
+receipt %>% 
+  group_by(dt,store_id_name, pos_staff) %>%
+  summarise() %>% 
+  group_by(store_id_name, dt) %>% 
+  summarise(staffs = n()) %>% 
+  group_by(store_id_name, wday=wday(dt)) %>% 
+  summarise(staffs=mean(staffs, na.rm=TRUE)) %>%
+  ggplot(aes(x=wday,y = staffs)) +
+  geom_line() +
+  facet_wrap(~store_id_name, scales="free")
+```
+
+
+```{r}
+receipt %>% 
+  group_by(dt,store_id_name, pos_staff) %>%
+  summarise() %>% 
+  group_by(store_id_name, dt) %>% 
+  summarise(staffs = n()) %>% 
+  ggplot(aes(x= factor(wday(dt)),y = staffs)) +
+  geom_violin(adjust=.8,
+              colour="black",
+              fill="gray")+
+  geom_boxplot(width=.1,
+               fill="black",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "wday", y = "staffs") +
+  facet_wrap(~store_id_name, scales="free")
+```
+
+
+
+```{r}
+customer$sex %>% 
+  as.factor() %>% 
+  as.integer() %>>% 
+  {mutate(customer,sex_num=.)} -> customer
+
+customer$dm %>% 
+  as.factor() %>% 
+  as.integer() %>>% 
+  {mutate(customer,dm_num=.)} -> customer
+
+customer %>% 
+  select(sex_num,morning_count_weekday:night_count_holiday) %>% 
+  prcomp(scale = TRUE) %>% 
+  biplot()
+```
+
