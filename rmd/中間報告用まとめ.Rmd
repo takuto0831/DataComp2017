@@ -111,7 +111,7 @@ receipt %>%
                shape=21, 
                size=2)+
   labs(x = "曜日",y = "顧客数") +
-  facet_wrap(~store_id_name, scales="free") +
+  #facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
   #ggsave(filename= "data/customer_for_store_wday.png")
 ```
@@ -141,11 +141,53 @@ receipt %>%
   #ggsave(filename= "data/staff_for_store_wday.png")
 ```
 
+# 顧客数/スタッフ数
+
+```{r customer/staff}
+# スタッフ数
+receipt %>% 
+  #group_by(dt,store_id_name, pos_staff,customer_id) %>%
+ # summarise() %>% 
+  group_by(store_id_name,dt) %>% 
+  summarise(war = pos_staff %>% 
+              as.factor() %>% 
+              levels() %>% 
+              length(),
+            ww = customer_id %>% 
+              as.factor() %>% 
+              levels() %>% 
+              length()) %>% 
+  mutate(warww = ww/war) %>% 
+  ggplot(aes(x= factor(wday(dt,label=T)),y = warww)) +
+  #geom_violin(adjust=.8,
+   #           colour="black",
+    #          fill="gray")+
+  geom_boxplot(width=.5,
+               fill="skyblue",
+               outlier.colour=NA)+
+  stat_summary(fun.y=median, 
+               geom="point",
+               fill="white", 
+               shape=21, 
+               size=2)+
+  labs(x = "曜日",y = "顧客数/スタッフ数") +
+  facet_wrap(~store_id_name, scales="free") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_blank(),
+    panel.grid = element_blank()
+  )
+  #ggsave(filename= "data/staff_for_store_wday.png")
+```
+
+
 ```{r}
 # 売上
 receipt %>% 
-  select(dt,in_tax,store_id_name) %>% 
-  ggplot(aes(x=factor(wday(dt,label = T)), y= in_tax)) + 
+  group_by(dt) %>%
+  summarise(money = sum(in_tax)) %>% 
+  ggplot(aes(x=factor(wday(dt,label = T)), y= money)) + 
   geom_violin(adjust=.8,
               colour="black",
               fill="gray")+
@@ -158,7 +200,8 @@ receipt %>%
                shape=21, 
                size=2)+
   labs(x = "曜日",y = "売上") +
-  facet_wrap(~store_id_name, scales="free") +
+  scale_y_continuous(labels = ScientificNotation) +
+  #facet_wrap(~store_id_name, scales="free") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> p
   #ggsave(filename= "data/sale_for_store_wday.png", plot = p)
 p
@@ -233,6 +276,7 @@ receipt %>%
   #ggsave(filename= "data/customer_for_store_hour_weekday.png", plot = p, dpi = 100, width = 21.0, height = 14.99)
 p
 ```
+
 
 ```{r}
 # スタッフ数 土日
@@ -393,6 +437,256 @@ receipt %>%
 p
 ```
 
+
+## 顧客来店スパン
+
+```{r}
+# フリー女性, フリー男性, 顧客情報なしのデータを消去する.
+customer_ <- customer[is.na(customer$comment),]
+# 表記を店名にするため
+receipt$store_id_name <- factor(receipt$store_id, labels = store$store_name[1:12] %>% trimws() %>% as.vector())
+```
+# 来店間隔
+
+```{r here}
+customer_ %>% 
+  mutate(first_store_name = factor(customer_$first_store, labels = c(store$store_name[13],store$store_name[1:12]) %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  filter(sex =="女性" | sex =="男性") %>% 
+  group_by(first_store_name) %>% 
+  summarise(Mean = mean(visit_interval,na.rm = TRUE),
+            Median = median(visit_interval,na.rm = TRUE)) -> lab
+labs <- data.frame(first_store_name = c(store$store_name[1:12])%>%
+                     trimws(),
+                   pval = paste("mean =",c(signif(lab$Mean,4))),
+                   qval = paste("median =",c(signif(lab$Median,4))))
+
+customer_ %>% 
+  mutate(first_store_name = factor(customer_$first_store, labels = c(store$store_name[13],store$store_name[1:12]) %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  filter(sex =="女性" | sex =="男性") %>% 
+  ggplot(aes(x=visit_interval)) +
+  geom_histogram(aes(fill=sex)) +
+  xlim(0,400) +
+  labs(x = "来店間隔 (日)",y = "頻度") +
+  facet_wrap(~first_store_name) +
+  geom_text(data = labs, aes(x = 250,y = 400,label = pval),size = 3.25) +
+  #facet_wrap(~sex+birth_age) +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+  #facet_wrap(~sex, scales="free")
+  #theme_bw()
+```
+
+## 顧客単価 施術販売
+
+```{r}
+line %>% 
+  filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(receipt_id,customer_id) %>% 
+  summarise(tanka = sum(in_tax)-sum(discount)) %>% 
+  select(receipt_id,tanka,customer_id) %>% 
+  inner_join(customer_[c("customer_id","first_store")],by = "customer_id") %>% 
+  as.data.frame() %>% as.tbl()-> line_tmp
+
+line_tmp %>% 
+  mutate(first_store_name = factor(line_tmp$first_store, labels = c(store$store_name[13],store$store_name[1:12]) 
+                                 %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  ggplot(aes(x=tanka))+
+  geom_density(fill = "skyblue") +
+  labs(x = "単価",y = "密度") +
+  facet_wrap(~first_store_name,scales="free") +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+  #facet_wrap(~sex, scales="free")
+
+```
+
+## さらにカットとその他で分解
+
+```{r}
+line_tmp <- line[is.na(line$comment),]
+# カットが含まれるもの
+line_tmp <- line_tmp[-grep("(お直し|000)",trimws(line_tmp$product_name)),]
+line_tmp[grep("カット",trimws(line_tmp$product_name)),] %>% 
+  filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(receipt_id,customer_id) %>% 
+  summarise(tanka = sum(in_tax)-sum(discount)) %>% 
+  select(receipt_id,tanka,customer_id) %>% 
+  inner_join(customer_[c("customer_id","first_store")],by = "customer_id") %>% 
+  as.data.frame() %>% as.tbl()-> line_tmp
+
+line_tmp %>% 
+  mutate(first_store_name = factor(line_tmp$first_store, labels = c(store$store_name[13],store$store_name[1:12]) 
+                                 %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  ggplot(aes(x=tanka))+
+  geom_density(fill = "skyblue",adjust = 1) +
+  labs(x = "単価",y = "密度") +
+  facet_wrap(~first_store_name,scales="free") +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+  #facet_wrap(~sex, scales="free")
+
+```
+
+## 顧客単価 物販
+
+```{r}
+line %>% 
+  filter(trimws(item_treat) == "物販商品") %>% 
+  group_by(receipt_id,customer_id) %>% 
+  summarise(tanka = sum(in_tax)-sum(discount)) %>% 
+  select(receipt_id,tanka,customer_id) %>% 
+  inner_join(customer_[c("customer_id","first_store")],by = "customer_id") %>% 
+  as.data.frame() %>% as.tbl()-> line_tmp
+
+line_tmp %>% 
+  mutate(first_store_name = factor(line_tmp$first_store, labels = c(store$store_name[13],store$store_name[1:12]) 
+                                 %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  ggplot(aes(x=tanka))+
+  geom_density(fill = "skyblue") +
+  labs(x = "単価",y = "密度") +
+  facet_wrap(~first_store_name,scales="free") +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+  #facet_wrap(~sex, scales="free")
+
+```
+
+```{r favorite item}
+line[grep("クーポン", line$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> a
+
+line[grep("平", line$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> a
+
+
+line[grep("幼稚園", line$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> a
+
+line[grep("カット", line$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> a
+```
+
+```{r money 1000}
+inner_join(receipt,customer_[a[1:1000],],by="customer_id") %>% 
+  select(in_tax) %>% 
+  sum() %>% print()
+
+receipt %>% 
+  select(in_tax) %>% 
+  sum() %>% print()
+
+line %>% 
+  filter(trimws(item_treat) == "施術販売") %>% 
+  select(in_tax,discount) %>% 
+  summarise(k = sum(in_tax),
+            t = sum(discount)) %>%  
+  mutate(money = k-t)  %>%  print()
+
+line %>% 
+  filter(trimws(item_treat) == "物販商品") %>% 
+  select(in_tax,discount) %>% 
+  summarise(k = sum(in_tax),
+            t = sum(discount)) %>%  
+  mutate(money = k-t)  %>%  print()
+
+```
+
+```{r coupon}
+receipt %>% 
+  filter(cs_point == 1) %>% dim()
+  inner_join(line,by = "receipt_id") -> tmp
+
+tmp[grep("クーポン", tmp$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> a
+
+receipt %>% 
+  filter(cs_point == 2) %>% 
+  inner_join(line,by = "receipt_id") -> tmp
+
+tmp[grep("クーポン", tmp$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> b
+
+receipt %>% 
+  filter(cs_point == 3) %>% 
+  inner_join(line,by = "receipt_id") -> tmp
+
+tmp[grep("クーポン", tmp$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> c
+
+
+line[grep("クーポン", line$product_name),] %>% 
+  #filter(trimws(item_treat) == "施術販売") %>% 
+  group_by(product_name) %>% 
+  summarise(p = n()) -> c
+
+```
+
+
+## 性別
+
+```{r}
+customer_ %>% 
+  mutate(first_store_name = factor(customer_$first_store, labels = c(store$store_name[13],store$store_name[1:12]) %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  ggplot(aes(x=sex))+
+  geom_bar(fill = "skyblue") + 
+  labs(x = "性別",y = "人数") +
+  facet_wrap(~first_store_name)+
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+```
+
+```{r}
+customer_ %>% 
+  mutate(first_store_name = factor(customer_$first_store, labels = c(store$store_name[13],store$store_name[1:12]) %>% trimws())) %>% 
+  filter(first_store != 0) %>%
+  ggplot(aes(x=birth_age))+
+  geom_histogram(fill = "skyblue",binwidth = 10) + 
+  xlim(1920,2010) + 
+  labs(x = "誕生年代",y = "人数") +
+  facet_wrap(~first_store_name) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        #panel.background = element_blank(),
+        panel.grid = element_blank()
+        ) 
+```
+
+
 # 雑記
 
 使えそうなものまだ未保存,未調整
@@ -552,3 +846,49 @@ storely %>%
                 y = unitPrice,
                 label=store_name), size=4, vjust=2)
 ```
+
+```{r}
+receipt %>% left_join(customer, by="customer_id") %>%
+  group_by(dt, customer_id,repeater) %>%
+  summarise() %>%
+  mutate(wday=wday(dt)) %>%
+  group_by(wday, repeater) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x=wday, y=count)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~repeater, scales="free")
+```
+
+```{r}
+customer_ %>% 
+  
+```
+
+
+## 次元縮尺
+
+```{r}
+#install.packages("Rtsne")
+library(Rtsne)
+set.seed(1)
+customer_ %>% 
+  select(morning_count_weekday:night_count_holiday) %>% 
+  Rtsne(check_duplicates = FALSE, verbose=TRUE, dims = 3) -> cus_tsne
+
+plot3d(cus_tsne$Y,labels=customer_$birth_age, col=customer_$birth_age,cex = .5)
+text(cus_tsne$Y, labels=customer_$birth_age, col=customer_$birth_age,cex = .5)
+```
+
+## ベイジアンネットワーク
+
+```{r bn,eval=FALSE}
+library(bnlearn)
+customer_ %>% 
+  apply(2,function(x)  as.factor(x)) %>% 
+  as.data.frame() %>% 
+  #as.tbl() %>%
+  gs()
+
+  bn.fit() -> a
+```
+

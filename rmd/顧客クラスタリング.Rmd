@@ -56,6 +56,10 @@ customer <- customer[is.na(customer$comment),]
 receipt$store_id_name <- factor(receipt$store_id, labels = store$store_name[1:12] %>% trimws() %>% as.vector())
 ```
 
+```{r}
+customer_[customer_$visit_interval < 30,] -> tmp
+tmp[!(is.na(tmp$total_item_money)),] -> tmp
+```
 
 # 基本データ分析
 
