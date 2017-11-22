@@ -1,0 +1,97 @@
+---
+title: "地域データの活用"
+author: "Kotsubo Takuto"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    md_extensions: -ascii_identifiers
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r,echo=FALSE}
+library(dplyr)
+library(tidyverse)
+library(rgl)
+library(pipeR)
+library(lubridate)
+library(foreach)
+```
+
+# データの読み込み
+
+```{r source data}
+source('E:/git/DataCompetition/rmd/script/read_data.R', encoding = 'UTF-8')
+source('E:/git/DataCompetition/rmd/script/complement_data.R', encoding = 'UTF-8')
+ziocode <- read_csv('E:/git/DataCompetition/rmd/csv/zeocode_plus.csv')
+```
+
+# 関数
+
+```{r functions}
+distance_func <- function(lat, long, main_lat, main_long){
+  # 軽度の序離を求める
+  dis_x = 6378150 * cos(main_lat/180 * pi) * 2 * pi * (long-main_long) / 360 
+  # 緯度の距離を求める
+  dis_y = 40054782 * (lat-main_lat) / 360
+  return(sqrt(dis_x^2 + dis_y^2))
+}
+
+# 角度を求める関数
+# なんか違う
+theta_func <- function(lat, long, main_lat, main_long){
+  dx = long-main_long
+  phi = 90 - atan2(sin(dx),cos(main_lat)*tan(lat) - sin(main_lat)*cos(dx))
+  return(d)
+}
+```
+
+```{r}
+customer_com %>% 
+  filter(zip_code > 1000000) %>% 
+  left_join(ziocode, by="zip_code") %>% 
+  left_join(store %>% 
+              select(mode = store_id,store_lat = lat,store_long = long,station),by="mode") ->tmp
+
+ans_dis <- foreach(a=tmp$lat,b=tmp$long,c=tmp$store_lat,d=tmp$store_long, .combine = "c") %do% distance_func(a,b,c,d) 
+#ans2 <- foreach(a=tmp$lat,b=tmp$long,c=tmp$store_lat,d=tmp$store_long, .combine = "c") %do% theta_func(a,b,c,d) 
+```
+
+```{r}
+tmp %>% 
+  mutate(distance = ans1_dis/1000) %>% 
+  ggplot(aes(x= factor(station),y = distance)) +
+  stat_summary(fun.y = mean, fun.ymin = min, 
+               fun.ymax = max,colour = "deepskyblue") +
+  labs(x = "店舗",y = "距離") +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+
+tmp %>%
+  #filter(station == "表参道") %>% 
+  ggplot(aes(x=distance,y=visit_interval)) +
+  geom_point()
+```
+
