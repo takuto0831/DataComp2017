@@ -40,8 +40,9 @@ library(lubridate)
 
 # データの読み込み
 
+
 ```{r}
-source('C:/Users/SHIO-160412-4/Desktop/data-competition/rmd/script/read_data.R', encoding = 'UTF-8')
+source('E:/git/DataCompetition/rmd/script/read_data.R', encoding = 'UTF-8')
 ```
 
 - 顧客データに対して, 平日の午前,夕方,夜, 土日の午前,夕方,夜の六項目での施術回数を記録
