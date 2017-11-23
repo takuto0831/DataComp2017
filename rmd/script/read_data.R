@@ -25,18 +25,18 @@ product$product_name<- iconv(product$product_name,from = "utf-8",to="cp932")
 
 # 期間内で初回来店が2017年02月30日以降の人間は3000名程度いる
 # リピーター判定で取り除く必要ある,リピーター判定
-customer <- receipt %>% 
-  select(customer_id,
-         cs_point) %>% 
-  group_by(customer_id) %>% 
-  summarise(count = n(),
-            cumComing=max(cs_point)) %>%  #cs_pointは累積来店回数
-  filter(count==1,
-         cumComing==1) %>%
-  mutate(repeater = FALSE) %>% 
-  select(customer_id,repeater) %>% 
-  right_join(customer, by="customer_id") %>% 
-  mutate(repeater= ifelse(is.na(repeater)==TRUE,TRUE,FALSE))
+customer<- receipt %>%
+  filter(customer_id != -1) %>%
+  group_by(year=year(dt), month=month(dt), customer_id) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(customer_id) %>%
+  summarise(count = n()) %>%
+  filter(count > 1) %>%
+  select(-count) %>%
+  mutate(repeater = TRUE) %>%
+  right_join(customer, by="customer_id") %>%
+  replace_na(list(repeater=FALSE))
 
 # 店舗データに最寄駅を追加
 store_names <- c("表参道","銀座","池袋","新宿","目黒","駒沢","二子玉川","みなとみらい","中野","上大岡","横浜","吉祥寺","不明")
@@ -54,7 +54,8 @@ line <- line %>%
             by="product_id")
 
 # フリー女性, フリー男性, 顧客情報なしのデータを消去する.
-# ここかえるよ,情報補完する
+# お気にいり店舗
+
 customer %>%
   filter(is.na(comment) == TRUE) %>% 
   #filter(is.na(visit_interval) == FALSE) %>% 
