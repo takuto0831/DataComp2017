@@ -13,12 +13,13 @@ editor_options:
 ---
 
 ```{r knitr_init, echo=FALSE, cache=FALSE}
+#rm(list=ls())
 library(knitr)
 library(rmdformats)
 
 ## Global options
 options(max.print="75")
-opts_chunk$set(echo=FALSE,
+opts_chunk$set(echo=TRUE,
 	             cache=TRUE,
                prompt=FALSE,
                tidy=TRUE,
@@ -39,30 +40,83 @@ library(foreach)
 
 # データの読み込み
 
-```{r source data}
+必要なデータをSQLから読み込む
+
+```{r source data,include=FALSE}
 source('E:/git/DataCompetition/rmd/script/read_data.R', encoding = 'UTF-8')
-source('E:/git/DataCompetition/rmd/script/complement_data.R', encoding = 'UTF-8')
 ziocode <- read_csv('E:/git/DataCompetition/rmd/csv/zeocode_plus.csv')
 ```
 
-# 関数
-
 ```{r functions}
-distance_func <- function(lat, long, main_lat, main_long){
-  # 軽度の序離を求める
-  dis_x = 6378150 * cos(main_lat/180 * pi) * 2 * pi * (long-main_long) / 360 
-  # 緯度の距離を求める
-  dis_y = 40054782 * (lat-main_lat) / 360
-  return(sqrt(dis_x^2 + dis_y^2))
-}
+source('E:/git/DataCompetition/rmd/script/functions.R', encoding = 'UTF-8')
+```
 
-# 角度を求める関数
-# なんか違う
-theta_func <- function(lat, long, main_lat, main_long){
-  dx = long-main_long
-  phi = 90 - atan2(sin(dx),cos(main_lat)*tan(lat) - sin(main_lat)*cos(dx))
-  return(d)
-}
+
+# データ補完
+
+性別、誕生年についてランダムフォレストを用いて欠損値補完
+その際、誕生年はカテゴリカルデータとして扱った
+
+[ランダムフォレストによる欠損値補完](http://kato-kohaku-0.hatenablog.com/entry/2016/05/01/155908)
+
+```{r}
+#source('E:/git/DataCompetition/rmd/script/complement_data.R', encoding = 'UTF-8')
+#write.csv(customer_com,'E:/git/DataCompetition/rmd/csv/customer_complicated.csv',fileEncoding = "cp932",quote=FALSE, row.names=FALSE)
+customer_com <- read.csv('E:/git/DataCompetition/rmd/csv/customer_complicated.csv')
+```
+
+# 補完前のデータと補完後のデータを比較
+
+補完前と補完後の性別および誕生年代のヒストグラムで概観を比較する
+
+```{r 補完データ比較}
+customer %>>% 
+  ggplot(aes(x=sex)) + 
+  geom_bar(fill="skyblue") +
+  labs(title = "補完前",x = "性別",y = "人数") + 
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 15),
+    panel.background = element_blank(),
+    panel.grid = element_blank()
+  )
+
+customer_com %>>% 
+  ggplot(aes(x=sex)) + 
+  geom_bar(fill="skyblue") +
+  labs(title = "補完後",x = "性別",y = "人数") + 
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 15),
+    panel.background = element_blank(),
+    panel.grid = element_blank()
+  )  
+
+customer %>>%
+  ggplot(aes(x=birth_age %>% as.factor())) + 
+  geom_bar(fill="skyblue") +
+  labs(title = "補完前",x = "誕生年代",y = "人数") + 
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 15),
+    panel.background = element_blank(),
+    panel.grid = element_blank()
+  )
+
+customer_com %>>%
+  ggplot(aes(x=birth_age %>% as.factor())) + 
+  geom_bar(fill="skyblue") +
+  labs(title = "補完後",x = "誕生年代",y = "人数") + 
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 15),
+    panel.background = element_blank(),
+    panel.grid = element_blank()
+  )
 ```
 
 ```{r}
@@ -71,14 +125,14 @@ customer_com %>%
   left_join(ziocode, by="zip_code") %>% 
   left_join(store %>% 
               select(mode = store_id,store_lat = lat,store_long = long,station),by="mode") ->tmp
-
-ans_dis <- foreach(a=tmp$lat,b=tmp$long,c=tmp$store_lat,d=tmp$store_long, .combine = "c") %do% distance_func(a,b,c,d) 
+# 距離情報を追加
+ans_dis <- foreach(a=tmp$lat,b=tmp$long,c=tmp$store_lat,d=tmp$store_long, .combine = "c") %do% distance_func_2(a,b,c,d) 
 #ans2 <- foreach(a=tmp$lat,b=tmp$long,c=tmp$store_lat,d=tmp$store_long, .combine = "c") %do% theta_func(a,b,c,d) 
 ```
 
-```{r}
+```{r 距離と諸データの関連性}
 tmp %>% 
-  mutate(distance = ans1_dis/1000) %>% 
+  mutate(distance = ans_dis) %>% 
   ggplot(aes(x= factor(station),y = distance)) +
   stat_summary(fun.y = mean, fun.ymin = min, 
                fun.ymax = max,colour = "deepskyblue") +
@@ -90,8 +144,29 @@ tmp %>%
   )
 
 tmp %>%
-  #filter(station == "表参道") %>% 
+  mutate(distance = ans_dis) %>% 
+  filter(is.na(station) == FALSE) %>% 
   ggplot(aes(x=distance,y=visit_interval)) +
-  geom_point()
+  geom_point(alpha = 0.2) +
+  labs(x = "距離",y = "来店間隔") +
+  facet_wrap("station") +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
+
+tmp %>%
+  mutate(distance = ans_dis) %>% 
+  filter(is.na(station) == FALSE) %>% 
+  ggplot(aes(x=distance,y=total_item_money)) +
+  geom_point(alpha = 0.2) +
+  labs(x = "距離",y = "店販購入金額") +
+  facet_wrap("station") +
+  theme_bw() +
+  theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank()
+  )
 ```
 
