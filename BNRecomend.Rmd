@@ -1,0 +1,129 @@
+---
+title: "Bayesian Network Recommend System"
+author: "takuto kotsubo"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    md_extensions: -ascii_identifiers
+---
+
+```{r option, echo=FALSE, cache=FALSE,warning=FALSE}
+library(knitr)
+library(rmdformats)
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+               cache = TRUE,
+	             prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+# パッケージ読み込み
+
+```{r, message=FALSE}
+# biocLite("Rgraphviz")
+library(bnlearn)
+library(dplyr)
+library(pipeR)
+library(Matrix)
+library(Rgraphviz)
+```
+
+# Bayesian network classifier 1
+
+まずはデータをそのまま利用して調べる。
+
+## Normal data
+
+```{r, include=FALSE}
+data <- read.table("csv/customer_cluster.csv",colClasses = "factor", sep = ",", header = TRUE)
+```
+
+```{r}
+# 中身確認
+head(data,3)
+str(data)
+```
+
+## データを扱う手法によって変形する
+    
+ユーザー情報、アイテム情報、2つの情報を使って予測を行うため必要なデータを抽出する
+
+```{r, include=FALSE}
+# データ分割
+data_set = data[,c(2:3,5:7,9:15)]
+test = data_set[data_set$birth_age == "",]
+train = data_set[data_set$birth_age != "",]
+```
+
+## 関数定義
+
+```{r}
+# MSEを求める関数
+MseTable <- function(data){
+  # 値を格納する
+  summ = 0
+  for(i in 1:dim(data)[1]){
+    for(j in 1:dim(data)[2]){
+      summ = summ + ((i - j)^2 * data[i,j]) # MSE
+     # summ = summ + (abs(i - j) * data[i,j]) # MAE
+    }
+  }
+  return(summ / sum(data))
+}
+# naive bayes 分類を行う関数
+NaiveBayesFunc <- function(data1,data2){
+  # data1:train data, data2:test data
+  data1 %>>% 
+    naive.bayes("birth_age") %>>% 
+    (~ graphviz.plot(.,shape = "ellipse")) %>>% # モデルのプロット
+    bn.fit(data1) %>>% 
+    predict(data2) %>>% 
+    (table(predict=.,truth = data2$birth_age)) %>>%
+    (~ print(ftable(.))) %>>% # 予測と実測値
+    (sprintf("MSE:%4.4f",MseTable(.)))# MSE
+}
+# Tree Augmented Naive bayes 分類を行う関数
+TANFunc <- function(data1, data2){
+  # data1:train data, data2:test data
+  data1 %>>% 
+    tree.bayes("birth_age") %>>% 
+    (~ graphviz.plot(.,shape = "ellipse")) %>>% # モデルのプロット
+    bn.fit(data1) %>>% 
+    predict(data2) %>>% 
+    (table(predict=.,truth = data2$birth_age)) %>>%
+    (~ print(ftable(.))) %>>% # 予測と実測値
+    (sprintf("MSE:%4.4f",MseTable(.)))# MSE
+  }
+```
+## データ指標
+
+
+## check for traing data and test data
+
+
+```{r}
+# naive bayes
+NaiveBayesFunc(train,test)
+# TAN
+TANFunc(train, test)
+```
+
+# cross validation
+
+```{r}
+train_index <- sample(c(TRUE,FALSE),nrow(train),rep=TRUE)
+test_index <- (!train_index)
+```
+
+```{r}
+NaiveBayesFunc(train[train_index,],train[test_index,])
+TANFunc(train[train_index,],train[test_index,])
+```
+
+
