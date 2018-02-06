@@ -35,7 +35,7 @@ library(modeest)
 # 全データの読み込み
 
 ```{r}
-source('E:/git/DataCompetition/rmd/script/read_data.R', encoding = 'UTF-8')
+source('E:/git/DataCompetition/script/read_data.R', encoding = 'UTF-8')
 ```
 
 ```{r}
@@ -965,12 +965,6 @@ receipt %>% left_join(customer, by="customer_id") %>%
   geom_bar(stat="identity")+
   facet_wrap(~repeater, scales="free")
 ```
-
-```{r}
-customer_ %>% 
-  
-```
-
 
 ## 次元縮尺
 
