@@ -34,6 +34,39 @@ library(modeest)
 
 # 全データの読み込み
 
-```{r}
+```{r read data}
 source('E:/git/DataCompetition/script/read_data.R', encoding = 'UTF-8')
+station_data <- read_csv("csv/station_customer.csv")
 ```
+
+
+```{r}
+station_data %>% 
+  left_join(customer,by = "customer_id") %>% 
+  group_by(customer_id,m) %>% 
+  summarise(tmp = mean(visit_interval,na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  group_by(m) %>% 
+  summarise(tmp = mean(tmp,na.rm = TRUE),
+            counter = n()) %>% 
+  na.omit() %>% 
+  arrange(desc(tmp)) %>>% 
+  (? head(.,20)) %>>%
+  tail(20)
+```
+
+
+```{r}
+receipt %>% 
+  select(cs_point == 1) %>% 
+  summarise()
+```
+
+
+
+
+
+
+
+
+
